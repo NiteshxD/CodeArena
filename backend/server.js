@@ -8,12 +8,20 @@ const initializeSockets = require('./sockets/socketHandler');
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
+const allowedOrigins = [
+  'https://codeaarenaverse.vercel.app',
+  'http://localhost:5173'
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST']
+}));
 app.use(express.json());
 
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: allowedOrigins,
     methods: ['GET', 'POST']
   }
 });

@@ -25,7 +25,8 @@ const OutputPanel = ({ codeRef, language, setLanguage, socketRef, roomId }) => {
     setOutput('Running...');
 
     try {
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/execute`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://codearena-jjy5.onrender.com';
+      const response = await axios.post(`${backendUrl}/api/execute`, {
         source_code: code,
         language_id: langObj.id
       });
