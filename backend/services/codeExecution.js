@@ -1,13 +1,10 @@
 const express = require('express');
 const axios = require('axios');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 
 router.post('/', async (req, res) => {
   const { source_code, language_id } = req.body;
+  
   const languageMap = {
     63: { language: 'javascript', version: '18.15.0' },
     71: { language: 'python', version: '3.10.0' },
@@ -52,11 +49,11 @@ router.post('/', async (req, res) => {
       }
       return res.status(200).json(result ? { ...result, execution_source: "Judge0 API" } : { error: "Timeout", execution_source: "Judge0 API" });
     } catch (error) {
-      console.error('Judge0 failed, falling back...');
+      console.error('Judge0 failed, falling back to Piston...', error.response?.data || error.message);
     }
   }
 
-  // 2. Piston API (Free Deployment Alternative with spoofed User-Agent)
+  // 2. Piston API (Free Cloud Execution Alternative)
   try {
     const pistonRes = await axios.post('https://emkc.org/api/v2/piston/execute', {
       language: selectedLanguage.language,
@@ -77,44 +74,10 @@ router.post('/', async (req, res) => {
       execution_source: "Piston API"
     });
   } catch (error) {
-    console.error('Piston API blocked or failed. Checking local execution fallback...');
-  }
-
-  // 3. Local OS Execution (Final Fallback for Local Development)
-  const jobId = uuidv4();
-  if (language_id === 63 || language_id === 'javascript') {
-    const filePath = path.join(__dirname, `${jobId}.js`);
-    try {
-      fs.writeFileSync(filePath, source_code);
-      exec(`node "${filePath}"`, { timeout: 5000 }, (error, stdout, stderr) => {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        if (error && error.killed) {
-           return res.status(200).json({ stdout: null, stderr: "Execution timed out (5s limit)", error: null, execution_source: "Local Node.js OS Sandbox" });
-        }
-        return res.status(200).json({ stdout, stderr: stderr || null, compile_output: null, error: error ? error.message : null, execution_source: "Local Node.js OS Sandbox" });
-      });
-    } catch (err) {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return res.status(500).json({ error: "Local Server JS execution failed." });
-    }
-  } else if (language_id === 71 || language_id === 'python') {
-    const filePath = path.join(__dirname, `${jobId}.py`);
-    try {
-      fs.writeFileSync(filePath, source_code);
-      exec(`python "${filePath}"`, { timeout: 5000 }, (error, stdout, stderr) => {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        if (error && error.killed) {
-           return res.status(200).json({ stdout: null, stderr: "Execution timed out (5s limit)", error: null, execution_source: "Local Python OS Sandbox" });
-        }
-        return res.status(200).json({ stdout, stderr: stderr || null, compile_output: null, error: null, execution_source: "Local Python OS Sandbox" });
-      });
-    } catch (err) {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return res.status(500).json({ error: "Local Server Python execution failed." });
-    }
-  } else {
+    console.error('Piston API blocked or failed.', error.response?.data || error.message);
     return res.status(500).json({
-      error: "All remote APIs failed, and local compilation is not supported for this language."
+      error: "All remote cloud APIs failed to execute securely. Please try again later or provide a Judge0 Key.",
+      execution_source: "Failed Remote Compilation"
     });
   }
 });
