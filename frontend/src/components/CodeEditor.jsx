@@ -4,6 +4,8 @@ import Editor from '@monaco-editor/react';
 const CodeEditor = ({ socketRef, roomId, onCodeChange, language, username }) => {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
+  const isRemoteUpdate = useRef(false);
+  const typingTimeoutRef = useRef(null);
   const [decorations, setDecorations] = useState([]);
 
   // Setup initial themes and defaults
@@ -27,13 +29,10 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange, language, username }) => 
     });
     monaco.editor.setTheme('codeCollabTheme');
 
-    // Setup format to listen to value changes locally
+    // Setup format to listen to value changes locally natively
     editor.onDidChangeModelContent((event) => {
       const currentCode = editor.getValue();
       onCodeChange(currentCode);
-      
-      // Emit to server to broadcast, except when it's an incoming change
-      // handled separately in useEffect
     });
     
     // Listen for cursor selection/move
@@ -56,14 +55,17 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange, language, username }) => 
     socket.on('code-change', (newCode) => {
       if (newCode !== null && editorRef.current) {
         const currentCode = editorRef.current.getValue();
+        
         if (newCode !== currentCode) {
+          // Flag this specific update as originating from the server
+          isRemoteUpdate.current = true;
+          
           // Saving current cursor positional state
           const position = editorRef.current.getPosition();
           
-          editorRef.current.setValue(newCode);
-          onCodeChange(newCode); // Update parent ref
-
-          // Restore cursor
+          editorRef.current.setValue(newCode); // This will trigger onChange
+          
+          // Restore cursor position gently
           if (position) {
              editorRef.current.setPosition(position);
           }
@@ -71,7 +73,7 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange, language, username }) => 
       }
     });
 
-    // Language listener setup from room state or sync
+    // Language listener setup
     socket.on('language-change', (newLang) => {
       if (monacoRef.current && editorRef.current) {
         const model = editorRef.current.getModel();
@@ -82,7 +84,6 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange, language, username }) => 
     // Remote Cursor Tracker via Decorations
     socket.on('remote-cursor-update', ({ socketId, cursor, username: remoteUser }) => {
       if (editorRef.current && monacoRef.current) {
-        // Find existing decoration for this socket to remove
         const newDecorations = [
           {
             range: new monacoRef.current.Range(cursor.lineNumber, cursor.column, cursor.lineNumber, cursor.column),
@@ -92,8 +93,6 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange, language, username }) => 
             }
           }
         ];
-        // In Monaco, we need to pass old decoration IDs to deltaDecorations to update/remove them
-        // For simplicity with multiple cursors without a map here, we just apply momentarily or clear prev
         setDecorations((prev) => editorRef.current.deltaDecorations(prev, newDecorations));
       }
     });
@@ -103,12 +102,25 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange, language, username }) => 
       socket.off('language-change');
       socket.off('remote-cursor-update');
     };
-  }, [socketRef.current, roomId]); // Dependency on the current value
+  }, [socketRef.current, roomId]);
 
   // Handle local typing to emit events
   const handleChange = (value) => {
+    // If Monaco triggered this change purely because we called setValue() from a remote socket event, ignore it to prevent infinite feedback loops!
+    if (isRemoteUpdate.current) {
+      isRemoteUpdate.current = false; // Reset the flag
+      return;
+    }
+
     if (socketRef.current) {
-      socketRef.current.emit('code-update', { roomId, code: value });
+      // Clear previous timeout to implement efficient 100ms Debouncing
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        socketRef.current.emit('code-update', { roomId, code: value });
+      }, 100);
     }
   };
 
@@ -117,7 +129,7 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange, language, username }) => 
       <Editor
         height="100%"
         width="100%"
-        theme="vs-dark"
+        theme="codeCollabTheme"
         language={language}
         defaultValue="// Start typing here..."
         onMount={handleEditorDidMount}
