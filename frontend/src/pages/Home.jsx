@@ -311,7 +311,7 @@ const Home = () => {
           <Terminal size={16} className="text-slate-400" />
           <span className="font-semibold text-slate-300">CodeCollab</span>
         </div>
-        <p className="text-sm">Built with the MERN Stack. © {new Date().getFullYear()}</p>
+        <p className="text-sm">Developed by Nitesh Yadav © {new Date().getFullYear()}</p>
       </footer>
     </div>
   );
