@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 
 const allowedOrigins = [
-  'https://codeaarenaverse.vercel.app',
+  'https://codearenaverse.vercel.app',
   'http://localhost:5173'
 ];
 
