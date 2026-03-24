@@ -8,19 +8,18 @@ const OutputPanel = ({ codeRef, language, setLanguage, socketRef, roomId }) => {
   const [isError, setIsError] = useState(false);
   const [executionSource, setExecutionSource] = useState(null);
 
-  // Mapped languages supported by the application
+  // Mapped languages supported strictly by the strict architecture
   const languages = [
-    { value: 'javascript', label: 'JavaScript (Node.js)', id: 63 },
-    { value: 'python', label: 'Python (3.8.1)', id: 71 },
-    { value: 'cpp', label: 'C++ (GCC 9.2.0)', id: 54 }
+    { value: 'javascript', label: 'JavaScript (Node.js)' },
+    { value: 'python', label: 'Python (3.10)' },
+    { value: 'cpp', label: 'C++ (GCC)' },
+    { value: 'java', label: 'Java (15.0)' }
   ];
 
   const handleRunCode = async () => {
-    const code = codeRef.current;
-    if (!code) return;
+    const codeData = codeRef.current;
+    if (!codeData) return;
 
-    const langObj = languages.find(l => l.value === language) || languages[0];
-    
     setIsLoading(true);
     setIsError(false);
     setOutput('Running...');
@@ -28,36 +27,33 @@ const OutputPanel = ({ codeRef, language, setLanguage, socketRef, roomId }) => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://codearena-jjy5.onrender.com';
       const response = await axios.post(`${backendUrl}/api/execute`, {
-        source_code: code,
-        language_id: langObj.id
+        code: codeData,
+        language: language
       });
       
-      const { stdout, stderr, compile_output, error, execution_source } = response.data;
+      const { output: runOutput, source } = response.data;
       
-      if (execution_source) {
-        console.log(`[CodeCollab]: Code successfully executed via [${execution_source}]`);
-        setExecutionSource(execution_source);
+      if (source) {
+        console.log(`[CodeCollab]: Code successfully executed via [${source}]`);
+        setExecutionSource(source);
       } else {
         setExecutionSource(null);
       }
       
-      if (error) {
+      // Map error flag visually
+      if (source === 'piston-error') {
         setIsError(true);
-        setOutput(error);
-      } else if (stderr) {
-        setIsError(true);
-        setOutput(stderr);
-      } else if (compile_output) {
-        setIsError(true);
-        setOutput(compile_output);
       } else {
         setIsError(false);
-        setOutput(stdout || 'Code executed successfully with no output.');
       }
+      
+      setOutput(runOutput || 'Code executed successfully with no output.');
+
     } catch (err) {
       console.error(err);
       setIsError(true);
       setOutput(err.response?.data?.error || 'Execution failed due to network error or server down.');
+      setExecutionSource("API Failed");
     } finally {
       setIsLoading(false);
     }
