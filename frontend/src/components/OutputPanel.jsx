@@ -6,6 +6,7 @@ const OutputPanel = ({ codeRef, language, setLanguage, socketRef, roomId }) => {
   const [output, setOutput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
+  const [executionSource, setExecutionSource] = useState(null);
 
   // Mapped languages supported by the application
   const languages = [
@@ -31,7 +32,14 @@ const OutputPanel = ({ codeRef, language, setLanguage, socketRef, roomId }) => {
         language_id: langObj.id
       });
       
-      const { stdout, stderr, compile_output, error } = response.data;
+      const { stdout, stderr, compile_output, error, execution_source } = response.data;
+      
+      if (execution_source) {
+        console.log(`[CodeCollab]: Code successfully executed via [${execution_source}]`);
+        setExecutionSource(execution_source);
+      } else {
+        setExecutionSource(null);
+      }
       
       if (error) {
         setIsError(true);
@@ -84,17 +92,27 @@ const OutputPanel = ({ codeRef, language, setLanguage, socketRef, roomId }) => {
       </div>
 
       {/* Output Display Area */}
-      <div className="flex-1 overflow-auto bg-[#0d1117] relative p-4 custom-scrollbar">
-        {output === '' ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-600">
-            <TerminalIcon size={48} className="mb-4 opacity-20" />
-            <p className="text-sm font-mono tracking-wide">Output will appear here</p>
+      <div className="flex-1 bg-[#0d1117] relative p-4 flex flex-col h-full">
+        <div className="flex-1 overflow-auto custom-scrollbar pr-2 pb-2">
+          {output === '' ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-600">
+              <TerminalIcon size={48} className="mb-4 opacity-20" />
+              <p className="text-sm font-mono tracking-wide">Output will appear here</p>
+            </div>
+          ) : (
+            <pre className={`font-mono text-sm whitespace-pre-wrap flex items-start gap-2 ${isError ? 'text-red-400' : 'text-green-400'}`}>
+              {isError && <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />}
+              {output}
+            </pre>
+          )}
+        </div>
+        
+        {/* Execution Source Badge / Status Bar */}
+        {executionSource && output !== '' && (
+          <div className="mt-2 pt-2 border-t border-slate-800 text-xs font-mono text-slate-500 flex justify-end items-center opacity-80 gap-2 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+            Executed via: {executionSource}
           </div>
-        ) : (
-          <pre className={`font-mono text-sm whitespace-pre-wrap flex items-start gap-2 ${isError ? 'text-red-400' : 'text-green-400'}`}>
-            {isError && <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />}
-            {output}
-          </pre>
         )}
       </div>
     </div>

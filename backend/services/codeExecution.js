@@ -50,7 +50,7 @@ router.post('/', async (req, res) => {
           result = statusRes.data;
         }
       }
-      return res.status(200).json(result || { error: "Timeout" });
+      return res.status(200).json(result ? { ...result, execution_source: "Judge0 API" } : { error: "Timeout", execution_source: "Judge0 API" });
     } catch (error) {
       console.error('Judge0 failed, falling back...');
     }
@@ -73,7 +73,8 @@ router.post('/', async (req, res) => {
       stdout: pistonRes.data.run.stdout,
       stderr: pistonRes.data.run.stderr,
       compile_output: pistonRes.data.compile?.stderr || null,
-      error: null
+      error: null,
+      execution_source: "Piston API"
     });
   } catch (error) {
     console.error('Piston API blocked or failed. Checking local execution fallback...');
@@ -88,9 +89,9 @@ router.post('/', async (req, res) => {
       exec(`node "${filePath}"`, { timeout: 5000 }, (error, stdout, stderr) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         if (error && error.killed) {
-           return res.status(200).json({ stdout: null, stderr: "Execution timed out (5s limit)", error: null });
+           return res.status(200).json({ stdout: null, stderr: "Execution timed out (5s limit)", error: null, execution_source: "Local Node.js OS Sandbox" });
         }
-        return res.status(200).json({ stdout, stderr: stderr || null, compile_output: null, error: error ? error.message : null });
+        return res.status(200).json({ stdout, stderr: stderr || null, compile_output: null, error: error ? error.message : null, execution_source: "Local Node.js OS Sandbox" });
       });
     } catch (err) {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -103,9 +104,9 @@ router.post('/', async (req, res) => {
       exec(`python "${filePath}"`, { timeout: 5000 }, (error, stdout, stderr) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         if (error && error.killed) {
-           return res.status(200).json({ stdout: null, stderr: "Execution timed out (5s limit)", error: null });
+           return res.status(200).json({ stdout: null, stderr: "Execution timed out (5s limit)", error: null, execution_source: "Local Python OS Sandbox" });
         }
-        return res.status(200).json({ stdout, stderr: stderr || null, compile_output: null, error: null });
+        return res.status(200).json({ stdout, stderr: stderr || null, compile_output: null, error: null, execution_source: "Local Python OS Sandbox" });
       });
     } catch (err) {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
